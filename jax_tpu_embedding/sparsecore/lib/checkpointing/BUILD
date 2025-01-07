@@ -38,6 +38,7 @@ pytype_strict_contrib_test(
         pypi_requirement("absl/testing:absltest"),
         pypi_requirement("jax"),
     ],
+    tags = ["cpu"],
 )
 
 # Library target.
@@ -48,4 +49,5 @@ pytype_strict_library(
     deps = [
         "checkpoint_utils",  # buildcleaner: keep
     ],
+    tags = ["test"],
 )

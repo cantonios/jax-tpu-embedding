@@ -1,6 +1,8 @@
 name: Build and test
 
 on:
+  # Only run workflow on pushes to main (includes PR merge), and on
+  # opened pull-requests.
   push:
     branches:
     - main
@@ -8,7 +10,7 @@ on:
 
 jobs:
   build_and_test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         python-version: ["3.10"]
@@ -27,11 +29,14 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get install -y zip
           python -m pip install --upgrade pip setuptools wheel
           . build/install_bazelisk.sh
 
       # Load different caches depending on if this is a pull-request or merge.
+      # If merge (or push commit), use a read-write cache based on the python
+      #    version, branch, and commit-sha.
+      # If pull-request, use a read-only cache based on the target python
+      #    version, branch, and PR base sha.
       - if: github.event_name != 'pull_request'
         name: Mount bazel cache (main)
         uses: actions/cache@v3
@@ -48,9 +53,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: "/home/runner/.cache/bazel"
-          key: bazel-${{ matrix.python-version }}-${{ github.ref_name }}-${{ github.event.pull_request.base.sha }}
+          key: bazel-${{ matrix.python-version }}-${{ github.base_ref }}-${{ github.event.pull_request.base.sha }}
           restore-keys: |
-            bazel-${{ matrix.python-version }}-${{ github.ref_name }}
+            bazel-${{ matrix.python-version }}-${{ github.base_ref }}
             bazel-${{ matrix.python-version }}-
             bazel-
 
@@ -62,3 +67,7 @@ jobs:
       - name: Build pip wheel
         run: |
           bazel run  //build:build_pip_package -- $PWD
+
+      - name: Run CPU tests
+        run: |
+          bazel test --config=cpu --test_output=errors --keep_going //...
