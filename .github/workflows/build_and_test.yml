@@ -1,6 +1,10 @@
 name: Build and test
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+    - main
+  pull_request:
 
 jobs:
   build_and_test:
@@ -21,11 +25,6 @@ jobs:
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
 
-      - name: Dump GitHub context
-        env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
-        run: echo "$GITHUB_CONTEXT"
-
       - name: Install dependencies
         run: |
           sudo apt-get install -y zip
@@ -34,7 +33,7 @@ jobs:
 
       # Load different caches depending on if this is a pull-request or merge.
       - if: github.event_name != 'pull_request'
-        name: Mount bazel cache (save/restore)
+        name: Mount bazel cache (main)
         uses: actions/cache@v3
         with:
           path: "/home/runner/.cache/bazel"
@@ -45,7 +44,7 @@ jobs:
             bazel-
 
       - if: github.event_name == 'pull_request'
-        name: Mount bazel cache (restore)
+        name: Mount bazel cache (pull-request)
         uses: actions/cache/restore@v4
         with:
           path: "/home/runner/.cache/bazel"
