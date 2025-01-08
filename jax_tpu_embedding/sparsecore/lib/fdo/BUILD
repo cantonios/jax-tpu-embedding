@@ -42,6 +42,7 @@ pytype_strict_library(
 pytype_strict_contrib_test(
     name = "file_fdo_client_test",
     srcs = ["file_fdo_client_test.py"],
+    tags = ["cpu"],
     deps = [
         ":file_fdo_client",
         pypi_requirement("absl/testing:absltest"),
