@@ -135,7 +135,7 @@ def run_wheel_tags(bdist_path: str, python_tag: str, abi_tag: str, platform_tag:
     Full path of the modified wheel.
   """
   logging.info('Running wheel tags on %s', bdist_path)
-  output_wheel, _ = _run(
+  stdout, stderr = _run(
       [
         sys.executable,
         '-m',
@@ -150,7 +150,10 @@ def run_wheel_tags(bdist_path: str, python_tag: str, abi_tag: str, platform_tag:
         '--remove' if remove else '',
         bdist_path],
   )
-  return os.path.join(os.path.dirname(bdist_path), output_wheel)
+  wheel_tags_info = re.search(
+      r'(?P<wheel>[\S]+?.whl)', stdout
+  )
+  return os.path.join(os.path.dirname(bdist_path), wheel_tags_info['wheel'])
 
 
 def run_auditwheel_show(bdist_path: str) -> str:
@@ -167,7 +170,9 @@ def run_auditwheel_show(bdist_path: str) -> str:
     RuntimeError: if we fail to parse the output of the command.
   """
   logging.info('Running auditwheel show on %s', bdist_path)
-  stdout = _run([sys.executable, '-m', 'auditwheel', 'show', bdist_path])
+  stdout, stderr = _run(
+    [sys.executable, '-m', 'auditwheel', 'show', bdist_path]
+  )
   logging.debug('Auditwheel show: %s', stdout)
 
   # Potentially fix wheel based on compatiability tag.

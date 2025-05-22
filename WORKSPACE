@@ -21,11 +21,11 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 ###############################################################################
 
 HIGHWAY_VERSION= "c861f4ca87795cd8d57e8879f1677ba858600f1b"
-HIGHWAY_SHA256 = ""
+HIGHWAY_INTEGRITY = "sha256-rdvsbLTFEEriag3olnZg5t1ppcrZD9mOnzm6TsC1vHc="
 HIGHWAY_ARCHIVE = "https://github.com/google/highway/archive/{version}.tar.gz".format(version = HIGHWAY_VERSION)
 http_archive(
     name = "highway",
-    sha256 = HIGHWAY_SHA256,
+    integrity = HIGHWAY_INTEGRITY,
     strip_prefix = "highway-{version}".format(version = HIGHWAY_VERSION),
     urls = [HIGHWAY_ARCHIVE],
 )
