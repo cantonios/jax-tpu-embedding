@@ -85,7 +85,7 @@ def _run(args: list[str]) -> str:
   stdout = process.stdout
   stderr = process.stderr
   if process.returncode != 0:
-    logging.error('Command failed: "%s"\n', ' '.join(args), stderr)
+    logging.error('Command failed: "%s"\n%s', ' '.join(args), stderr)
     raise subprocess.CalledProcessError(
         process.returncode, args, output=stdout, stderr=stderr
     )

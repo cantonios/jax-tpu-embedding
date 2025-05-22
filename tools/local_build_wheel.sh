@@ -18,6 +18,11 @@ if [ -z "$JTE_GIT_SHA" ]; then
   JTE_GIT_SHA=`git rev-parse HEAD 2> /dev/null || echo ""`
 fi
 
+# Default config depending on platform.
+if [ -z "$JTE_BUILD_CONFIG" ]; then
+  JTE_BUILD_CONFIG="ci_linux_x86_64"
+fi
+
 # Determine the appropriate wheel suffix.  If it's not release,
 # and if the version suffix is not explicitly set, build a dev version.
 if [ -z "$JTE_RELEASE" ] && [ -z "$JTE_VERSION_SUFFIX" ]; then
@@ -31,6 +36,7 @@ if [ -z "$JTE_WHEEL_OUTDIR" ]; then
 fi
 
 echo "JTE_HERMETIC_PYTHON_VERSION: ${JTE_HERMETIC_PYTHON_VERSION}"
+echo "JTE_BUILD_CONFIG: ${JTE_BUILD_CONFIG}"
 echo "JTE_RELEASE: ${JTE_RELEASE}"
 echo "JTE_VERSION_SUFFIX: ${JTE_VERSION_SUFFIX}"
 echo "JTE_GIT_SHA: ${JTE_GIT_SHA}"
@@ -39,7 +45,8 @@ echo "JTE_WHEEL_OUTDIR: ${JTE_WHEEL_OUTDIR}"
 bazel run //third_party/py:requirements.update \
   --repo_env=HERMETIC_PYTHON_VERSION="${JTE_HERMETIC_PYTHON_VERSION}"
 
-bazel run //tools:build_wheel --config=macos --define=HWY_BROKEN_SVE=HWY_BROKEN_SVE=0xFF0000 \
+bazel run //tools:build_wheel \
+  --config="${JTE_BUILD_CONFIG}" \
   --repo_env=HERMETIC_PYTHON_VERSION="${JTE_HERMETIC_PYTHON_VERSION}" \
   --//jax_tpu_embedding/sparsecore:version_suffix="${JTE_VERSION_SUFFIX}" \
   --//jax_tpu_embedding/sparsecore:git_commit="${JTE_GIT_SHA}" \
