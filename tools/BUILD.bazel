@@ -38,5 +38,6 @@ py_binary(
         requirement("auditwheel"),
         requirement("build"),
         requirement("setuptools"),
+        requirement("wheel"),
     ],
 )

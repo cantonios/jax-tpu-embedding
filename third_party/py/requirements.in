@@ -4,12 +4,14 @@ flax @ https://github.com/google/flax/archive/e2134af.zip
 numpy
 dm-tree
 # Pre-release of JAX required for SparseCore TPUs.
-jax[tpu] --pre
+jax[tpu];sys_platform == 'linux' and platform_machine == 'x86_64' --pre
+jax[cpu];sys_platform != 'linux' or platform_machine != 'x86_64'
 
 # Build utilities.
 auditwheel
 build
 setuptools
+wheel
 
 # Testing.
 clu

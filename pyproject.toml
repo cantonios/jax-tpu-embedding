@@ -2,11 +2,10 @@
 name = "jax_tpu_embedding"
 description = "JAX SparseCore API"
 readme = "README.md"
-license = {file = "LICENSE"}
+license = "Apache-2.0"
 requires-python = ">=3.10"
 authors = [{name = "JAX SC Authors", email="jax-sc-dev@google.com"}]
 classifiers = [  # List of https://pypi.org/classifiers/
-    "License :: OSI Approved :: Apache Software License",
     "Intended Audience :: Science/Research",
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
@@ -14,6 +13,7 @@ classifiers = [  # List of https://pypi.org/classifiers/
     'Programming Language :: Python :: 3.13',
 ]
 dependencies = [
+    'dm-tree',
     'jax',
     'absl-py',
     'flax',
@@ -31,13 +31,8 @@ repository = "https://github.com/jax-ml/jax_tpu_embedding"
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-# Pseudo extension module to indicate to setuptools that the package
-# does contain prebuilt extensions.  Needed to set has_ext_modules.
-ext-modules = [{name="jax_tpu_embedding.prebuilt", sources=[]}]
-
 [tool.setuptools.dynamic]
-version = {attr = "jax_tpu_embedding.sparsecore.__version__"}
+version = {attr = "jax_tpu_embedding.sparsecore.version.__version__"}
 
 [tool.setuptools.packages.find]
 include = ["jax_tpu_embedding*"]

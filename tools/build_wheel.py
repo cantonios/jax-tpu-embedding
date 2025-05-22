@@ -28,6 +28,20 @@ _OUTPUT_DIR = flags.DEFINE_string(
     'output_dir', None, 'Output directory for generated wheels.', short_name='o'
 )
 
+_PLATFORM_TAG_MAP = {
+  'linux': 'manylinux_2_17_x86_64',
+  'darwin': 'macosx_11_0_arm64',
+  'win32': 'win_amd64',
+}
+
+def _get_platform_tag():
+  return _PLATFORM_TAG_MAP[sys.platform]
+
+def _get_python_tag():
+  return f'cp{str(sys.version_info.major)}{str(sys.version_info.minor)}'
+
+def _get_abi_tag():
+  return f'cp{str(sys.version_info.major)}{str(sys.version_info.minor)}'
 
 def _extract_wheel_info(filename: str) -> dict[str, str]:
   """Extracts version and tag information from the wheel name.
@@ -61,6 +75,22 @@ def _extract_wheel_info(filename: str) -> dict[str, str]:
 
   return wheel_info
 
+def _run(args: list[str]) -> str:
+  process = subprocess.run(
+      args,
+      check=False,
+      capture_output=True,
+      text=True,
+  )
+  stdout = process.stdout
+  stderr = process.stderr
+  if process.returncode != 0:
+    logging.error('Command failed: "%s"\n', ' '.join(args), stderr)
+    raise subprocess.CalledProcessError(
+        process.returncode, args, output=stdout, stderr=stderr
+    )
+
+  return stdout, stderr
 
 def run_build(output_dir: str) -> str:
   """Builds the wheel using the python `build` package.
@@ -76,13 +106,7 @@ def run_build(output_dir: str) -> str:
     RuntimeError: if we fail to parse the output of the build command.
   """
   logging.info('Building wheels in %s', output_dir)
-  process = subprocess.run(
-      [sys.executable, '-m', 'build', '--outdir', output_dir],
-      check=True,
-      capture_output=True,
-      text=True,
-  )
-  stdout = process.stdout
+  stdout, _ = _run([sys.executable, '-m', 'build', '--outdir', output_dir])
   logging.debug('Build output:\n%s', stdout)
 
   # Extract wheel information.
@@ -95,6 +119,38 @@ def run_build(output_dir: str) -> str:
   bdist = build_info['bdist']
   sdist = build_info['sdist']
   return bdist, sdist
+
+
+def run_wheel_tags(bdist_path: str, python_tag: str, abi_tag: str, platform_tag: str, remove: bool = True) -> str:
+  """Runs `wheel tags` on the provided wheel file.
+
+  Args:
+    bdist_path: full path of the binary distribution wheel.
+    python_tag: the python tag to set.
+    abi_tag: the ABI tag to set.
+    platform_tag: the platform tag to set.
+    remove: remove the original file.
+
+  Returns:
+    Full path of the modified wheel.
+  """
+  logging.info('Running wheel tags on %s', bdist_path)
+  output_wheel, _ = _run(
+      [
+        sys.executable,
+        '-m',
+        'wheel',
+        'tags',
+        '--python-tag',
+        python_tag,
+        '--abi-tag',
+        abi_tag,
+        '--platform-tag',
+        platform_tag,
+        '--remove' if remove else '',
+        bdist_path],
+  )
+  return os.path.join(os.path.dirname(bdist_path), output_wheel)
 
 
 def run_auditwheel_show(bdist_path: str) -> str:
@@ -111,14 +167,8 @@ def run_auditwheel_show(bdist_path: str) -> str:
     RuntimeError: if we fail to parse the output of the command.
   """
   logging.info('Running auditwheel show on %s', bdist_path)
-  process = subprocess.run(
-      [sys.executable, '-m', 'auditwheel', 'show', bdist_path],
-      check=True,
-      capture_output=True,
-      text=True,
-  )
-  stdout = process.stdout
-  logging.debug(stdout)
+  stdout = _run([sys.executable, '-m', 'auditwheel', 'show', bdist_path])
+  logging.debug('Auditwheel show: %s', stdout)
 
   # Potentially fix wheel based on compatiability tag.
   auditwheel_info = re.search(
@@ -155,7 +205,7 @@ def run_auditwheel_repair(
       bdist_path,
       platform_tag,
   )
-  process = subprocess.run(
+  _, stderr = _run(
       [
           sys.executable,
           '-m',
@@ -167,14 +217,9 @@ def run_auditwheel_repair(
           output_dir,
           bdist_path,
       ],
-      check=True,
-      capture_output=True,
-      text=True,
   )
   # Auditwheel repair outputs to stderr.
-  stderr = process.stderr
-  logging.debug(stderr)
-
+  logging.debug('Auditwheel repair: %s', stderr)
   auditwheel_info = re.search(
       r'Fixed-up wheel written to (?P<wheel>[\S]+)', stderr
   )
@@ -199,21 +244,25 @@ def main(argv: Sequence[str]) -> None:
 
   # Build wheel.
   bdist, _ = run_build(output_dir)
+  bdist_path = os.path.join(output_dir, bdist)
+  bdist_path = run_wheel_tags(bdist_path, _get_python_tag(), _get_abi_tag(), _get_platform_tag())
+  bdist = os.path.basename(bdist_path)
+
   wheel_info = _extract_wheel_info(bdist)
 
   # Run auditwheel to check and repair compatibility.
-  bdist_path = os.path.join(output_dir, bdist)
-  auditwheel_plat = run_auditwheel_show(bdist_path)
+  if sys.platform == "linux":
+    auditwheel_plat = run_auditwheel_show(bdist_path)
 
-  if auditwheel_plat != wheel_info['platform_tag']:
-    repaired_path = run_auditwheel_repair(
-        bdist_path, auditwheel_plat, output_dir
-    )
-    # Remove unrepaired wheel.
-    if repaired_path != bdist_path:
-      logging.debug('Removing unrepaired wheel: %s', bdist_path)
-      os.remove(bdist_path)
-      bdist_path = repaired_path
+    if auditwheel_plat != wheel_info['platform_tag']:
+      repaired_path = run_auditwheel_repair(
+          bdist_path, auditwheel_plat, output_dir
+      )
+      # Remove unrepaired wheel.
+      if repaired_path != bdist_path:
+        logging.debug('Removing unrepaired wheel: %s', bdist_path)
+        os.remove(bdist_path)
+        bdist_path = repaired_path
 
   logging.info('Final wheel: %s', bdist_path)
 
